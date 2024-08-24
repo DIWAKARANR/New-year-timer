@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Year Countdown with Fireworks</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+      background: #000;
+    }
+    #fireworks {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    #countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #fff;
+      font-size: 3em;
+      z-index: 2;
+    }
+    #countdown div {
+      display: inline-block;
+      margin: 0 20px;
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      animation: colorChange 10s infinite;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    #countdown div:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    }
+    #countdown span {
+      display: block;
+      font-size: 0.5em;
+    }
+    @keyframes colorChange {
+      0% { background: rgba(255, 0, 0, 0.2); }
+      25% { background: rgba(0, 255, 0, 0.2); }
+      50% { background: rgba(0, 0, 255, 0.2); }
+      75% { background: rgba(255, 255, 0, 0.2); }
+      100% { background: rgba(255, 0, 0, 0.2); }
+    }
+    #yearInput {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      padding: 10px;
+      font-size: 16px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      transition: background-color 0.5s ease;
+    }
+    #fullscreenBtn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 3;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.5s ease;
+    }
+    @media (max-width: 768px) {
+      #countdown {
+        font-size: 2em;
+      }
+      #countdown div {
+        margin: 0 10px;
+        padding: 10px;
+      }
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(100vh) rotate(720deg);
+      }
+    }
+    #musicToggle {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 3;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.5s ease;
+    }
+    #intensityControl {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 3;
+      color: white;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    #intensitySlider {
+      width: 100px;
+    }
+    #themeSelect {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      padding: 5px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="fireworks"></canvas>
+  <div id="countdown"></div>
+  <input type="number" id="yearInput" placeholder="Enter Year">
+  <button id="fullscreenBtn">Fullscreen</button>
+  <button id="musicToggle">🎵 Toggle Music</button>
+  <div id="intensityControl">
+    <label for="intensitySlider">Firework Intensity:</label>
+    <input type="range" id="intensitySlider" min="1" max="10" value="5">
+  </div>
+  <select id="themeSelect">
+    <option value="default">Default Theme</option>
+    <option value="cool">Cool Theme</option>
+    <option value="warm">Warm Theme</option>
+  </select>
+
+  <script>
+    const canvas = document.getElementById('fireworks');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = Math.random() * 2 + 1;
+        this.velocity = {
+          x: Math.random() * 5 - 2.5,
+          y: Math.random() * 5 - 2.5
+        };
+        this.life = 180;
+        this.opacity = 1;
+      }
+
+      draw() {
+        ctx.globalAlpha = this.opacity;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+      }
+
+      update() {
+        this.x += this.velocity.x;
+        this.y += this.velocity.y;
+        this.velocity.y += 0.05;
+        this.life--;
+        this.opacity -= 1 / this.life;
+        this.draw();
+      }
+    }
+
+    let particles = [];
+
+    // Web Audio API setup
+    let audioContext;
+    let isAudioInitialized = false;
+
+    function initAudio() {
+      if (!isAudioInitialized) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        isAudioInitialized = true;
+      }
+    }
+
+    function playFireworkSound() {
+      if (!isAudioInitialized) {
+        initAudio();
+      }
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+      gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
+    }
+
+    function createFirework(x, y) {
+      const hue = Math.random() * 360;
+      const color = `hsl(${hue}, 100%, 50%)`;
+      for (let i = 0; i < 100; i++) {
+        particles.push(new Particle(x, y, color));
+      }
+      playFireworkSound();
+    }
+
+    let fireworkIntensity = 0.05;
+
+    function animate() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      particles = particles.filter(particle => particle.life > 0);
+      particles.forEach(particle => particle.update());
+
+      if (Math.random() < fireworkIntensity) {
+        createFirework(Math.random() * canvas.width, Math.random() * canvas.height / 2);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    let countDownDate = new Date("Jan 1, 2025 00:00:00").getTime();
+    const countdownElement = document.getElementById("countdown");
+    const yearInput = document.getElementById("yearInput");
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    yearInput.addEventListener('change', function() {
+      const year = parseInt(this.value);
+      if (year) {
+        countDownDate = new Date(`Jan 1, ${year} 00:00:00`).getTime();
+        updateCountdown();
+      }
+    });
+
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const distance = countDownDate - now;
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      countdownElement.innerHTML = `
+        <div>${days}<span>days</span></div>
+        <div>${hours}<span>hours</span></div>
+        <div>${minutes}<span>minutes</span></div>
+        <div>${seconds}<span>seconds</span></div>
+      `;
+
+      if (distance < 0) {
+        clearInterval(countdownInterval);
+        countdownElement.innerHTML = `<div>Happy New Year ${new Date(countDownDate).getFullYear()}!</div>`;
+        createConfetti();
+      }
+    }
+
+    const countdownInterval = setInterval(updateCountdown, 1000);
+
+    function createConfetti() {
+      for (let i = 0; i < 200; i++) {
+        const confetti = document.createElement('div');
+        confetti.style.width = '10px';
+        confetti.style.height = '10px';
+        confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        confetti.style.position = 'absolute';
+        confetti.style.top = '-10px';
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confetti.style.zIndex = '4';
+        confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear`;
+        document.body.appendChild(confetti);
+
+        confetti.addEventListener('animationend', () => {
+          confetti.remove();
+        });
+      }
+    }
+
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          alert(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    function updateColors() {
+      const hue = (Date.now() / 100) % 360;
+      yearInput.style.backgroundColor = `hsla(${hue}, 70%, 50%, 0.2)`;
+      fullscreenBtn.style.backgroundColor = `hsla(${hue}, 70%, 50%, 0.2)`;
+    }
+
+    setInterval(updateColors, 100);
+
+    // Event listener to initialize audio on user interaction
+    document.addEventListener('click', initAudio, { once: true });
+
+    animate();
+    updateCountdown();
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // New additions
+    const musicToggle = document.getElementById('musicToggle');
+    let audio;
+
+    function toggleMusic() {
+      if (!audio) {
+        audio = new Audio('https://example.com/path-to-your-music.mp3');
+        audio.loop = true;
+      }
+      
+      if (audio.paused) {
+        audio.play();
+        musicToggle.textContent = '🔇 Mute Music';
+      } else {
+        audio.pause();
+        musicToggle.textContent = '🎵 Play Music';
+      }
+    }
+
+    musicToggle.addEventListener('click', toggleMusic);
+
+    const intensitySlider = document.getElementById('intensitySlider');
+    intensitySlider.addEventListener('input', function() {
+      fireworkIntensity = this.value * 0.01;
+    });
+
+    const themeSelect = document.getElementById('themeSelect');
+
+    function setColorTheme(theme) {
+      switch (theme) {
+        case 'cool':
+          return `hsl(${Math.random() * 60 + 180}, 100%, 50%)`;
+        case 'warm':
+          return `hsl(${Math.random() * 60}, 100%, 50%)`;
+        default:
+          return `hsl(${Math.random() * 360}, 100%, 50%)`;
+      }
+    }
+
+    themeSelect.addEventListener('change', function() {
+      const selectedTheme = this.value;
+      createFirework = function(x, y) {
+        const color = setColorTheme(selectedTheme);
+        for (let i = 0; i < 100; i++) {
+          particles.push(new Particle(x, y, color));
+        }
+        playFireworkSound();
+      };
+    });
+  </script>
+</body>
+  </html>
